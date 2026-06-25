@@ -1,24 +1,25 @@
-
 package ng.subhub.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.ProgressBar;
+import android.widget.ImageView;
 
 public class MainActivity extends Activity {
 
     private WebView webView;
-    private ProgressBar progressBar;
+    private ImageView loadingLogo;
     private static final String APP_URL = "https://subhub.com.ng";
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -27,7 +28,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        progressBar = findViewById(R.id.progressBar);
+        loadingLogo = findViewById(R.id.loadingLogo);
         webView = findViewById(R.id.webView);
 
         WebSettings settings = webView.getSettings();
@@ -35,11 +36,32 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
 
+        if (isNetworkAvailable()) {
+            settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        } else {
+            settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
+        }
+
+        settings.setDatabaseEnabled(true);
+        settings.setAppCacheEnabled(true);
+        settings.setAppCachePath(getCacheDir().getAbsolutePath());
+
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                loadingLogo.setVisibility(View.VISIBLE);
+                startPulseLogo();
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                loadingLogo.setVisibility(View.GONE);
+                loadingLogo.clearAnimation();
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
@@ -50,32 +72,28 @@ public class MainActivity extends Activity {
                 }
                 return false;
             }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                progressBar.setVisibility(View.GONE);
-            }
-        });
-
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onProgressChanged(WebView view, int newProgress) {
-                progressBar.setProgress(newProgress);
-                if (newProgress < 100) {
-                    progressBar.setVisibility(View.VISIBLE);
-                } else {
-                    progressBar.setVisibility(View.GONE);
-                }
-            }
         });
 
         webView.loadUrl(APP_URL);
     }
 
+    private void startPulseLogo() {
+        android.view.animation.Animation pulse =
+                android.view.animation.AnimationUtils.loadAnimation(this, R.anim.pulse);
+        loadingLogo.startAnimation(pulse);
+    }
+
+    private boolean isNetworkAvailable() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (cm == null) return false;
+        NetworkInfo info = cm.getActiveNetworkInfo();
+        return info != null && info.isConnected();
+    }
+
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
-            webView.goBack();
+            webView.goBack();\
             return true;
         }
         return super.onKeyDown(keyCode, event);
