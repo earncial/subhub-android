@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>No Internet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 32px;
+  }
+  img { width: 100px; height: 100px; margin-bottom: 24px; }
+  h1 { font-size: 22px; font-weight: 700; color: #111; margin-bottom: 12px; }
+  p { font-size: 15px; color: #666; line-height: 1.6; margin-bottom: 32px; }
+  .info-card{
+    border:1px solid #e5e7eb;
+    border-radius:18px;
+    padding:16px;
+    text-align:left;
+    margin-bottom:28px;
+}
+
+.info-card h3{
+    font-size:14px;
+    margin-bottom:10px;
+    color:var(--text);
+}
+
+.info-card ul{
+    padding-left:18px;
+}
+
+.info-card li{
+    color:var(--muted);
+    font-size:14px;
+    line-height:1.8;
+}
+  button {
+    background: #00aaff;
+    color: #fff;
+    border: none;
+    padding: 14px 40px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <img src="https://subhub.com.ng/logo.png"
+       onerror="this.style.display='none'" alt="SubHub">
+  <h1>No Internet Connection</h1>
+  <p>It looks like you're offline. Please check your internet
+connection and try again.
+</p>
+<div class="info-card">
+        <h3>Things you can try</h3>
+        <ul>
+            <li>Check your Wi-Fi or mobile data</li>
+            <li>Turn airplane mode off</li>
+            <li>Restart your network connection</li>
+        </ul>
+    </div>
+  <button onclick="window.location.reload()">Try Again</button>
+</body>
+</html>
