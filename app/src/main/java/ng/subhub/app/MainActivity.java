@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -20,7 +21,9 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private ImageView loadingLogo;
-    private static final String APP_URL = "https://subhub.com.ng";
+    private boolean isFirstLoad = true;
+    private static final String APP_URL = "https://subhub.com.ng/login";
+    private static final String OFFLINE_URL = "https://subhub.com.ng/offline";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -38,6 +41,7 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
+        settings.setDatabaseEnabled(true);
 
         if (isNetworkAvailable()) {
             settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
@@ -45,19 +49,34 @@ public class MainActivity extends Activity {
             settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
         }
 
-        settings.setDatabaseEnabled(true);
-
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                loadingLogo.setVisibility(View.VISIBLE);
-                startPulseLogo();
+                if (isFirstLoad) {
+                    loadingLogo.setVisibility(View.VISIBLE);
+                    startPulseLogo();
+                }
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                loadingLogo.setVisibility(View.GONE);
-                loadingLogo.clearAnimation();
+                if (isFirstLoad) {
+                    loadingLogo.setVisibility(View.GONE);
+                    loadingLogo.clearAnimation();
+                    isFirstLoad = false;
+                }
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request,
+                                        WebResourceError error) {
+                // Only handle main page errors, not sub-resources
+                if (request.isForMainFrame()) {
+                    loadingLogo.setVisibility(View.GONE);
+                    loadingLogo.clearAnimation();
+                    isFirstLoad = false;
+                    view.loadUrl(OFFLINE_URL);
+                }
             }
 
             @Override
