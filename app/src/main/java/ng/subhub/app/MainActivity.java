@@ -68,17 +68,15 @@ public class MainActivity extends Activity {
             }
 
             @Override
-            public void onReceivedError(WebView view, WebResourceRequest request,
-                                        WebResourceError error) {
-                // Only handle main page errors, not sub-resources
-                if (request.isForMainFrame()) {
-                    loadingLogo.setVisibility(View.GONE);
-                    loadingLogo.clearAnimation();
-                    isFirstLoad = false;
-                    view.loadUrl(OFFLINE_URL);
-                }
-            }
-
+public void onReceivedError(WebView view, WebResourceRequest request,
+                            WebResourceError error) {
+    if (request.isForMainFrame()) {
+        loadingLogo.setVisibility(View.GONE);
+        loadingLogo.clearAnimation();
+        isFirstLoad = false;
+        view.loadUrl("file:///android_asset/offline.html");
+    }
+}
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
