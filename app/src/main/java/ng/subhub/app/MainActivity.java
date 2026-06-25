@@ -23,7 +23,6 @@ public class MainActivity extends Activity {
     private ImageView loadingLogo;
     private boolean isFirstLoad = true;
     private static final String APP_URL = "https://subhub.com.ng/login";
-    private static final String OFFLINE_URL = "https://subhub.com.ng/offline";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -41,13 +40,7 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        settings.setDatabaseEnabled(true);
-
-        if (isNetworkAvailable()) {
-            settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
-        } else {
-            settings.setCacheMode(WebSettings.LOAD_CACHE_ONLY);
-        }
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -68,15 +61,16 @@ public class MainActivity extends Activity {
             }
 
             @Override
-public void onReceivedError(WebView view, WebResourceRequest request,
-                            WebResourceError error) {
-    if (request.isForMainFrame()) {
-        loadingLogo.setVisibility(View.GONE);
-        loadingLogo.clearAnimation();
-        isFirstLoad = false;
-        view.loadUrl("file:///android_asset/offline.html");
-    }
-}
+            public void onReceivedError(WebView view, WebResourceRequest request,
+                                        WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    loadingLogo.setVisibility(View.GONE);
+                    loadingLogo.clearAnimation();
+                    isFirstLoad = false;
+                    view.loadUrl("file:///android_asset/offline.html");
+                }
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
