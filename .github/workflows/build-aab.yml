@@ -23,11 +23,8 @@ jobs:
       - name: Build Release AAB
         run: ./gradlew bundleRelease
 
-      - name: Rename AAB
-        run: mv app/build/outputs/bundle/release/app-release.aab app/build/outputs/bundle/release/SubHub.aab
-
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: SubHub-AAB
-          path: app/build/outputs/bundle/release/SubHub.aab
+          path: app/build/outputs/bundle/release/app-release.aab
