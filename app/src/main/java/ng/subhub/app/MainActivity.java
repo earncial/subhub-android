@@ -46,8 +46,6 @@ public class MainActivity extends Activity {
         }
 
         settings.setDatabaseEnabled(true);
-        settings.setAppCacheEnabled(true);
-        settings.setAppCachePath(getCacheDir().getAbsolutePath());
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
