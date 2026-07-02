@@ -23,8 +23,18 @@ jobs:
       - name: Build Release AAB
         run: ./gradlew bundleRelease
 
-      - name: Upload AAB
+      - name: Sign App Bundle
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app/build/outputs/bundle/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload Signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: SubHub-AAB
-          path: app/build/outputs/bundle/release/app-release.aab
+          name: SubHub-AAB-Signed
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
