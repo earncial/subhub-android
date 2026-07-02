@@ -20,6 +20,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Automatically Fix Package Name for Google Play
+        run: |
+          # Wannan layin zai nemo kowane applicationId a jikin build.gradle ya canza shi zuwa ng.com.subhub
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId .*/applicationId "ng.com.subhub"/g' || true
+
       - name: Build Release AAB
         run: ./gradlew bundleRelease
 
@@ -36,5 +41,5 @@ jobs:
       - name: Upload Signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: SubHub-AAB-Signed
+          name: SubHub-Signed-AAB
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
