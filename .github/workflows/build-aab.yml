@@ -20,10 +20,16 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Automatically Fix Package Name for Google Play
+      - name: Automatically Fix Package Name & Upgrade to API 35
         run: |
-          # Wannan layin zai nemo kowane applicationId a jikin build.gradle ya canza shi zuwa ng.com.subhub
+          # Canza applicationId zuwa ng.com.subhub
           find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId .*/applicationId "ng.com.subhub"/g' || true
+          
+          # Tilasta wa targetSdkVersion da compileSdkVersion su koma 35 na dokar Google Play
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdkVersion .*/targetSdkVersion 35/g' || true
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdk .*/targetSdk = 35/g' || true
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/compileSdkVersion .*/compileSdkVersion 35/g' || true
+          find . -name "build.gradle" -o -name "compileSdk .*/compileSdk = 35/g' || true
 
       - name: Build Release AAB
         run: ./gradlew bundleRelease
