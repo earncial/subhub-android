@@ -22,14 +22,15 @@ jobs:
 
       - name: Automatically Fix Package Name & Upgrade to API 35
         run: |
-          # Canza applicationId zuwa ng.com.subhub
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId .*/applicationId "ng.com.subhub"/g' || true
+          # Gyara applicationId zuwa ng.com.subhub
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId\s*=.*/applicationId = "ng.com.subhub"/g' || true
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId\s*".*"/applicationId "ng.com.subhub"/g' || true
           
-          # Tilasta wa targetSdkVersion da compileSdkVersion su koma 35 na dokar Google Play
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdkVersion .*/targetSdkVersion 35/g' || true
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdk .*/targetSdk = 35/g' || true
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/compileSdkVersion .*/compileSdkVersion 35/g' || true
-          find . -name "build.gradle" -o -name "compileSdk .*/compileSdk = 35/g' || true
+          # Tilasta wa targetSdk da compileSdk su koma 35
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdkVersion\s*.*/targetSdkVersion 35/g' || true
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdk\s*=.*/targetSdk = 35/g' || true
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/compileSdkVersion\s*.*/compileSdkVersion 35/g' || true
+          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/compileSdk\s*=.*/compileSdk = 35/g' || true
 
       - name: Build Release AAB
         run: ./gradlew bundleRelease
