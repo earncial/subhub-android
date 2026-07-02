@@ -20,17 +20,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Automatically Fix Package Name & Upgrade to API 35
+      - name: Force Upgrade to API 35, Version 2, and Package Name (Python Script)
         run: |
-          # Gyara applicationId zuwa ng.com.subhub
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId\s*=.*/applicationId = "ng.com.subhub"/g' || true
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/applicationId\s*".*"/applicationId "ng.com.subhub"/g' || true
+          python3 -c "
+          import os, re
           
-          # Tilasta wa targetSdk da compileSdk su koma 35
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdkVersion\s*.*/targetSdkVersion 35/g' || true
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/targetSdk\s*=.*/targetSdk = 35/g' || true
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/compileSdkVersion\s*.*/compileSdkVersion 35/g' || true
-          find . -name "build.gradle" -o -name "build.gradle.kts" | xargs sed -i 's/compileSdk\s*=.*/compileSdk = 35/g' || true
+          for root, dirs, files in os.walk('.'):
+              for file in files:
+                  if file in ['build.gradle', 'build.gradle.kts']:
+                      file_path = os.path.join(root, file)
+                      with open(file_path, 'r') as f:
+                          content = f.read()
+                      
+                      # Force Upgrade API Levels to 35
+                      content = re.sub(r'(targetSdkVersion\s*=?\s*)\d+', r'\g<1>35', content)
+                      content = re.sub(r'(targetSdk\s*=?\s*)\d+', r'\g<1>35', content)
+                      content = re.sub(r'(compileSdkVersion\s*=?\s*)\d+', r'\g<1>35', content)
+                      content = re.sub(r'(compileSdk\s*=?\s*)\d+', r'\g<1>35', content)
+                      
+                      # Force Upgrade Version Code to 2
+                      content = re.sub(r'(versionCode\s*=?\s*)\d+', r'\g<1>2', content)
+                      
+                      # Force Update Application ID to ng.com.subhub
+                      content = re.sub(r'(applicationId\s*=?\s*[\"\']).*?([\"\'])', r'\g<1>ng.com.subhub\g<2>', content)
+                      
+                      with open(file_path, 'w') as f:
+                          f.write(content)
+                      print(f'Successfully updated: {file_path}')
+          "
 
       - name: Build Release AAB
         run: ./gradlew bundleRelease
