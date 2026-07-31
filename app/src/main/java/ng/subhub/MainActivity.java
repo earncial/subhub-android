@@ -16,11 +16,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends Activity {
 
     private WebView webView;
     private ImageView loadingLogo;
+    private SwipeRefreshLayout swipeRefresh;
     private static final String APP_URL = "https://subhub.com.ng/login";
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -31,7 +33,9 @@ public class MainActivity extends Activity {
 
         loadingLogo = findViewById(R.id.loadingLogo);
         webView = findViewById(R.id.webView);
-
+        swipeRefresh = findViewById(R.id.swipeRefresh);
+        swipeRefresh.setOnRefreshListener(() -> webView.reload());
+        
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -52,6 +56,7 @@ public void onPageStarted(WebView view, String url, Bitmap favicon) {
 public void onPageFinished(WebView view, String url) {
     loadingLogo.setVisibility(View.GONE);
     loadingLogo.clearAnimation();
+    swipeRefresh.setRefreshing(false);
 }            
            @Override
             public void onReceivedError(WebView view, WebResourceRequest request,
@@ -59,6 +64,7 @@ public void onPageFinished(WebView view, String url) {
                 if (request.isForMainFrame()) {
                     loadingLogo.setVisibility(View.GONE);
                     loadingLogo.clearAnimation();
+                    swipeRefresh.setRefreshing(false);
                     view.loadUrl("file:///android_asset/offline.html");
                 }
             }
