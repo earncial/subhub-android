@@ -4,10 +4,10 @@ plugins {
 
 android {
     compileSdk 34
-    namespace 'ng.subhub.app'
+    namespace 'ng.subhub'
 
     defaultConfig {
-        applicationId "ng.subhub.app"
+        applicationId "ng.subhub"
         minSdk 21
         targetSdk 34
         versionCode 1
