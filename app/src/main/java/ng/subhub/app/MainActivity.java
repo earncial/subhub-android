@@ -1,4 +1,4 @@
-package ng.subhub.app;
+package ng.subhub;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
