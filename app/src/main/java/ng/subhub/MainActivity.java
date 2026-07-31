@@ -21,7 +21,6 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private ImageView loadingLogo;
-    private boolean isFirstLoad = true;
     private static final String APP_URL = "https://subhub.com.ng/login";
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -44,43 +43,40 @@ public class MainActivity extends Activity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                if (isFirstLoad) {
-                    loadingLogo.setVisibility(View.VISIBLE);
-                    startPulseLogo();
-                }
-            }
+public void onPageStarted(WebView view, String url, Bitmap favicon) {
+    loadingLogo.setVisibility(View.VISIBLE);
+    startPulseLogo();
+}
 
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                if (isFirstLoad) {
-                    loadingLogo.setVisibility(View.GONE);
-                    loadingLogo.clearAnimation();
-                    isFirstLoad = false;
-                }
-            }
-
-            @Override
+@Override
+public void onPageFinished(WebView view, String url) {
+    loadingLogo.setVisibility(View.GONE);
+    loadingLogo.clearAnimation();
+}            
+           @Override
             public void onReceivedError(WebView view, WebResourceRequest request,
                                         WebResourceError error) {
                 if (request.isForMainFrame()) {
                     loadingLogo.setVisibility(View.GONE);
                     loadingLogo.clearAnimation();
-                    isFirstLoad = false;
                     view.loadUrl("file:///android_asset/offline.html");
                 }
             }
 
             @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                if (!url.startsWith("https://subhub.com.ng")) {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                    return true;
-                }
-                return false;
-            }
+public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+    String url = request.getUrl().toString();
+    if (url.startsWith("https://subhub.com.ng") || url.startsWith("file://")) {
+        return false; // bari WebView ya loda shi da kansa
+    }
+    try {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        startActivity(intent);
+    } catch (Exception e) {
+        // babu app da zai bude wannan link — kada ya rufe app din
+    }
+    return true;
+}
         });
 
         webView.loadUrl(APP_URL);
