@@ -20,29 +20,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Force Upgrade to API 35 (Python Script)
-        run: |
-          python3 -c "
-          import os, re
-          
-          for root, dirs, files in os.walk('.'):
-              for file in files:
-                  if file in ['build.gradle', 'build.gradle.kts']:
-                      file_path = os.path.join(root, file)
-                      with open(file_path, 'r') as f:
-                          content = f.read()
-                      
-                      # Force Upgrade API Levels to 35
-                      content = re.sub(r'(targetSdkVersion\s*=?\s*)\d+', r'\g<1>35', content)
-                      content = re.sub(r'(targetSdk\s*=?\s*)\d+', r'\g<1>35', content)
-                      content = re.sub(r'(compileSdkVersion\s*=?\s*)\d+', r'\g<1>35', content)
-                      content = re.sub(r'(compileSdk\s*=?\s*)\d+', r'\g<1>35', content)
-                      
-                      with open(file_path, 'w') as f:
-                          f.write(content)
-                      print(f'Successfully updated: {file_path}')
-          "
-
       - name: Build Release AAB
         run: ./gradlew bundleRelease
 
