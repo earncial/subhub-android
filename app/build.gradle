@@ -10,8 +10,8 @@ android {
         applicationId "ng.subhub"
         minSdk 21
         targetSdk 36
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 3
+        versionName "2.0.1"
     }
 
     buildTypes {
@@ -30,4 +30,6 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation 'androidx.biometric:biometric:1.1.0'
+    implementation 'com.google.android.play:app-update:2.1.0'
 }
