@@ -1,9 +1,9 @@
 package ng.subhub;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
@@ -13,6 +13,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import android.view.KeyEvent;
 import android.view.View;
@@ -24,26 +26,54 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.appupdate.AppUpdateOptions;
+import com.google.android.play.core.install.InstallStateUpdatedListener;
+import com.google.android.play.core.install.model.AppUpdateType;
+import com.google.android.play.core.install.model.InstallStatus;
+import com.google.android.play.core.install.model.UpdateAvailability;
+
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
+import java.util.concurrent.Executor;
 
-public class MainActivity extends Activity {
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private ImageView loadingLogo;
     private SwipeRefreshLayout swipeRefresh;
     private static final String APP_URL = "https://subhub.com.ng/login";
     private static final int STORAGE_PERMISSION_CODE = 1001;
+    private static final String KEYSTORE_ALIAS_PREFIX = "subhub_biometric_";
+    private static final String KEYSTORE_PROVIDER = "AndroidKeyStore";
+    private static final String PREFS_NAME = "subhub_secure_prefs";
 
-    // Injected on every page load. Intercepts <a download> links whose href
-    // is a blob: URL (created via URL.createObjectURL in the web page) and
-    // forwards the decoded file to the native side, since WebView cannot
-    // resolve blob: URLs the way a normal browser tab can.
+    private AppUpdateManager appUpdateManager;
+    private ActivityResultLauncher<IntentSenderRequest> updateLauncher;
+    private InstallStateUpdatedListener installStateListener;
+
     private static final String BLOB_DOWNLOAD_BRIDGE_JS =
             "(function() {" +
             "  if (window.__subhubBlobHooked) return;" +
@@ -80,6 +110,7 @@ public class MainActivity extends Activity {
         swipeRefresh.setOnRefreshListener(() -> webView.reload());
 
         webView.addJavascriptInterface(new DownloadInterface(), "AndroidDownload");
+        webView.addJavascriptInterface(new AuthInterface(), "AndroidAuth");
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -133,6 +164,54 @@ public class MainActivity extends Activity {
         });
 
         webView.loadUrl(APP_URL);
+
+        setupInAppUpdate();
+    }
+
+    private void setupInAppUpdate() {
+        appUpdateManager = AppUpdateManagerFactory.create(this);
+
+        updateLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartIntentSenderForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK) {
+                        // User declined or cancelled the update; nothing to do,
+                        // we'll offer it again next time the app opens.
+                    }
+                });
+
+        installStateListener = state -> {
+            if (state.installStatus() == InstallStatus.DOWNLOADED) {
+                Toast.makeText(getApplicationContext(),
+                        "Update downloaded. Restarting to install…",
+                        Toast.LENGTH_LONG).show();
+                appUpdateManager.completeUpdate();
+            }
+        };
+        appUpdateManager.registerListener(installStateListener);
+
+        checkForUpdate();
+    }
+
+    private void checkForUpdate() {
+        appUpdateManager.getAppUpdateInfo().addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                    && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)) {
+                try {
+                    appUpdateManager.startUpdateFlowForResult(
+                            appUpdateInfo,
+                            updateLauncher,
+                            AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build());
+                } catch (Exception e) {
+                    // Ignore; we'll simply prompt again next launch.
+                }
+            } else if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                Toast.makeText(getApplicationContext(),
+                        "Update downloaded. Restarting to install…",
+                        Toast.LENGTH_LONG).show();
+                appUpdateManager.completeUpdate();
+            }
+        });
     }
 
     private void startPulseLogo() {
@@ -157,11 +236,29 @@ public class MainActivity extends Activity {
         return super.onKeyDown(keyCode, event);
     }
 
-    /**
-     * Bridge exposed to the web page as window.AndroidDownload.
-     * Receives a base64-encoded file (converted from a Blob in JS) and
-     * writes it to the device's public Downloads folder.
-     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (appUpdateManager != null) {
+            appUpdateManager.getAppUpdateInfo().addOnSuccessListener(info -> {
+                if (info.installStatus() == InstallStatus.DOWNLOADED) {
+                    Toast.makeText(getApplicationContext(),
+                            "Update downloaded. Restarting to install…",
+                            Toast.LENGTH_LONG).show();
+                    appUpdateManager.completeUpdate();
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (appUpdateManager != null && installStateListener != null) {
+            appUpdateManager.unregisterListener(installStateListener);
+        }
+    }
+
     private class DownloadInterface {
         @JavascriptInterface
         public void saveFile(String base64Data, String fileName, String mimeType) {
@@ -214,5 +311,245 @@ public class MainActivity extends Activity {
                         "Could not save file", Toast.LENGTH_LONG).show());
             }
         }
+    }
+
+    private class AuthInterface {
+        @JavascriptInterface
+        public void requestBiometric(String callbackId) {
+            runOnUiThread(() -> showBiometricPrompt(callbackId));
+        }
+
+        @JavascriptInterface
+        public boolean isBiometricAvailable() {
+            return BiometricManager.from(MainActivity.this)
+                    .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                    == BiometricManager.BIOMETRIC_SUCCESS;
+        }
+
+        @JavascriptInterface
+        public boolean hasBiometricCredential(String slot) {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            return prefs.contains(credKey(slot));
+        }
+
+        @JavascriptInterface
+        public void enableBiometricCredential(String slot, String credential,
+                                               String promptTitle, String promptSubtitle) {
+            runOnUiThread(() ->
+                    encryptAndSaveCredential(slot, credential, promptTitle, promptSubtitle));
+        }
+
+        @JavascriptInterface
+        public void getBiometricCredential(String slot, String callbackId,
+                                            String promptTitle, String promptSubtitle) {
+            runOnUiThread(() ->
+                    decryptCredentialWithBiometric(slot, callbackId, promptTitle, promptSubtitle));
+        }
+
+        @JavascriptInterface
+        public void disableBiometricCredential(String slot) {
+            runOnUiThread(() -> getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                    .remove(credKey(slot))
+                    .remove(ivKey(slot))
+                    .apply());
+        }
+    }
+
+    private String credKey(String slot) {
+        return "encrypted_" + slot;
+    }
+
+    private String ivKey(String slot) {
+        return "iv_" + slot;
+    }
+
+    private SecretKey getOrCreateSecretKey(String slot) throws Exception {
+        String alias = KEYSTORE_ALIAS_PREFIX + slot;
+        KeyStore keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER);
+        keyStore.load(null);
+
+        if (keyStore.containsAlias(alias)) {
+            return (SecretKey) keyStore.getKey(alias, null);
+        }
+
+        KeyGenerator keyGenerator = KeyGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER);
+        KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
+                alias,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setUserAuthenticationRequired(true)
+                .build();
+
+        keyGenerator.init(spec);
+        return keyGenerator.generateKey();
+    }
+
+    private void encryptAndSaveCredential(String slot, String credential,
+                                           String promptTitle, String promptSubtitle) {
+        try {
+            SecretKey key = getOrCreateSecretKey(slot);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+
+            BiometricPrompt.CryptoObject cryptoObject = new BiometricPrompt.CryptoObject(cipher);
+            Executor executor = ContextCompat.getMainExecutor(this);
+            BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor,
+                    new BiometricPrompt.AuthenticationCallback() {
+                        @Override
+                        public void onAuthenticationSucceeded(
+                                BiometricPrompt.AuthenticationResult result) {
+                            super.onAuthenticationSucceeded(result);
+                            try {
+                                Cipher authedCipher = result.getCryptoObject().getCipher();
+                                byte[] encrypted = authedCipher.doFinal(
+                                        credential.getBytes(StandardCharsets.UTF_8));
+                                byte[] iv = authedCipher.getIV();
+
+                                SharedPreferences prefs =
+                                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                                prefs.edit()
+                                        .putString(credKey(slot),
+                                                Base64.encodeToString(encrypted, Base64.DEFAULT))
+                                        .putString(ivKey(slot),
+                                                Base64.encodeToString(iv, Base64.DEFAULT))
+                                        .apply();
+
+                                runOnUiThread(() -> Toast.makeText(getApplicationContext(),
+                                        "Fingerprint enabled", Toast.LENGTH_SHORT).show());
+                            } catch (Exception e) {
+                                runOnUiThread(() -> Toast.makeText(getApplicationContext(),
+                                        "Could not enable fingerprint", Toast.LENGTH_SHORT).show());
+                            }
+                        }
+
+                        @Override
+                        public void onAuthenticationError(int errorCode, CharSequence errString) {
+                            super.onAuthenticationError(errorCode, errString);
+                            runOnUiThread(() -> Toast.makeText(getApplicationContext(),
+                                    "Fingerprint setup cancelled", Toast.LENGTH_SHORT).show());
+                        }
+                    });
+
+            BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                    .setTitle(promptTitle != null ? promptTitle : "Enable fingerprint")
+                    .setSubtitle(promptSubtitle != null ? promptSubtitle : "Confirm your fingerprint")
+                    .setNegativeButtonText("Not now")
+                    .build();
+
+            biometricPrompt.authenticate(promptInfo, cryptoObject);
+        } catch (Exception e) {
+            Toast.makeText(this, "Could not set up fingerprint", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void decryptCredentialWithBiometric(String slot, String callbackId,
+                                                 String promptTitle, String promptSubtitle) {
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            String encB64 = prefs.getString(credKey(slot), null);
+            String ivB64 = prefs.getString(ivKey(slot), null);
+            if (encB64 == null || ivB64 == null) {
+                notifyCredentialCallback(callbackId, false, null, "not-enrolled");
+                return;
+            }
+
+            byte[] encrypted = Base64.decode(encB64, Base64.DEFAULT);
+            byte[] iv = Base64.decode(ivB64, Base64.DEFAULT);
+
+            SecretKey key = getOrCreateSecretKey(slot);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+
+            BiometricPrompt.CryptoObject cryptoObject = new BiometricPrompt.CryptoObject(cipher);
+            Executor executor = ContextCompat.getMainExecutor(this);
+            BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor,
+                    new BiometricPrompt.AuthenticationCallback() {
+                        @Override
+                        public void onAuthenticationSucceeded(
+                                BiometricPrompt.AuthenticationResult result) {
+                            super.onAuthenticationSucceeded(result);
+                            try {
+                                Cipher authedCipher = result.getCryptoObject().getCipher();
+                                byte[] decrypted = authedCipher.doFinal(encrypted);
+                                String credential = new String(decrypted, StandardCharsets.UTF_8);
+                                notifyCredentialCallback(callbackId, true, credential, "success");
+                            } catch (Exception e) {
+                                notifyCredentialCallback(callbackId, false, null, "decrypt-error");
+                            }
+                        }
+
+                        @Override
+                        public void onAuthenticationError(int errorCode, CharSequence errString) {
+                            super.onAuthenticationError(errorCode, errString);
+                            notifyCredentialCallback(callbackId, false, null, "error");
+                        }
+                    });
+
+            BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                    .setTitle(promptTitle != null ? promptTitle : "Verify it's you")
+                    .setSubtitle(promptSubtitle != null ? promptSubtitle : "Use your fingerprint to continue")
+                    .setNegativeButtonText("Cancel")
+                    .build();
+
+            biometricPrompt.authenticate(promptInfo, cryptoObject);
+        } catch (Exception e) {
+            notifyCredentialCallback(callbackId, false, null, "error");
+        }
+    }
+
+    private void notifyCredentialCallback(String callbackId, boolean success,
+                                           String credential, String reason) {
+        String credentialJs = credential == null ? "null" : JSONObject.quote(credential);
+        String js = "window.__subhubCredentialCallback && window.__subhubCredentialCallback("
+                + "'" + callbackId + "', " + success + ", " + credentialJs + ", '" + reason + "');";
+        runOnUiThread(() -> webView.evaluateJavascript(js, null));
+    }
+
+    private void showBiometricPrompt(String callbackId) {
+        BiometricManager biometricManager = BiometricManager.from(this);
+        int canAuthenticate = biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG);
+
+        if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
+            notifyBiometricResult(callbackId, false, "unavailable");
+            return;
+        }
+
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor,
+                new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                        super.onAuthenticationSucceeded(result);
+                        notifyBiometricResult(callbackId, true, "success");
+                    }
+
+                    @Override
+                    public void onAuthenticationError(int errorCode, CharSequence errString) {
+                        super.onAuthenticationError(errorCode, errString);
+                        notifyBiometricResult(callbackId, false, "error");
+                    }
+
+                    @Override
+                    public void onAuthenticationFailed() {
+                        super.onAuthenticationFailed();
+                    }
+                });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Verify it's you")
+                .setSubtitle("Use your fingerprint to continue")
+                .setNegativeButtonText("Cancel")
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+
+    private void notifyBiometricResult(String callbackId, boolean success, String reason) {
+        String js = "window.__subhubBiometricCallback && window.__subhubBiometricCallback("
+                + "'" + callbackId + "', " + success + ", '" + reason + "');";
+        runOnUiThread(() -> webView.evaluateJavascript(js, null));
     }
 }
