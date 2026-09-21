@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ImageView loadingLogo;
     private SwipeRefreshLayout swipeRefresh;
-    private static final String APP_URL = "https://subhub.com.ng/login";
+    private static final String APP_URL = "https://app.subhub.com.ng/login";
     private static final int STORAGE_PERMISSION_CODE = 1001;
     private static final String KEYSTORE_ALIAS_PREFIX = "subhub_biometric_";
     private static final String KEYSTORE_PROVIDER = "AndroidKeyStore";
