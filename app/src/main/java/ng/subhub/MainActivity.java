@@ -35,6 +35,7 @@ import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
+import androidx.core.content.FileProvider;
 
 import com.google.android.play.core.appupdate.AppUpdateInfo;
 import com.google.android.play.core.appupdate.AppUpdateManager;
@@ -111,7 +112,8 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new DownloadInterface(), "AndroidDownload");
         webView.addJavascriptInterface(new AuthInterface(), "AndroidAuth");
-
+        webView.addJavascriptInterface(new ShareInterface(), "AndroidShare");
+        
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -313,6 +315,43 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+ * Bridge exposed to the web page as window.AndroidShare.
+ * Receives a base64-encoded image (e.g. a receipt captured with
+ * html2canvas) and hands it to the native Android share sheet so the
+ * user can send it straight to WhatsApp, Telegram, or any other app.
+ */
+private class ShareInterface {
+    @JavascriptInterface
+    public void shareImage(String base64Data, String fileName) {
+        runOnUiThread(() -> shareImageFile(base64Data, fileName));
+    }
+}
+
+private void shareImageFile(String base64Data, String fileName) {
+    try {
+        byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+
+        File cacheDir = new File(getCacheDir(), "shared_images");
+        if (!cacheDir.exists()) cacheDir.mkdirs();
+        File file = new File(cacheDir, fileName);
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            out.write(bytes);
+        }
+
+        Uri contentUri = FileProvider.getUriForFile(
+                this, getPackageName() + ".fileprovider", file);
+
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType("image/png");
+        shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(shareIntent, "Share receipt"));
+    } catch (Exception e) {
+        Toast.makeText(this, "Could not share receipt", Toast.LENGTH_SHORT).show();
+    }
+}
+    
     private class AuthInterface {
         @JavascriptInterface
         public void requestBiometric(String callbackId) {
