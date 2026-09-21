@@ -27,10 +27,13 @@ import android.widget.Toast;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.util.concurrent.Executor;
 
 public class MainActivity extends Activity {
 
@@ -40,10 +43,6 @@ public class MainActivity extends Activity {
     private static final String APP_URL = "https://subhub.com.ng/login";
     private static final int STORAGE_PERMISSION_CODE = 1001;
 
-    // Injected on every page load. Intercepts <a download> links whose href
-    // is a blob: URL (created via URL.createObjectURL in the web page) and
-    // forwards the decoded file to the native side, since WebView cannot
-    // resolve blob: URLs the way a normal browser tab can.
     private static final String BLOB_DOWNLOAD_BRIDGE_JS =
             "(function() {" +
             "  if (window.__subhubBlobHooked) return;" +
@@ -80,6 +79,7 @@ public class MainActivity extends Activity {
         swipeRefresh.setOnRefreshListener(() -> webView.reload());
 
         webView.addJavascriptInterface(new DownloadInterface(), "AndroidDownload");
+        webView.addJavascriptInterface(new AuthInterface(), "AndroidAuth");
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -157,11 +157,6 @@ public class MainActivity extends Activity {
         return super.onKeyDown(keyCode, event);
     }
 
-    /**
-     * Bridge exposed to the web page as window.AndroidDownload.
-     * Receives a base64-encoded file (converted from a Blob in JS) and
-     * writes it to the device's public Downloads folder.
-     */
     private class DownloadInterface {
         @JavascriptInterface
         public void saveFile(String base64Data, String fileName, String mimeType) {
@@ -214,5 +209,58 @@ public class MainActivity extends Activity {
                         "Could not save file", Toast.LENGTH_LONG).show());
             }
         }
+    }
+
+    private class AuthInterface {
+        @JavascriptInterface
+        public void requestBiometric(String callbackId) {
+            runOnUiThread(() -> showBiometricPrompt(callbackId));
+        }
+    }
+
+    private void showBiometricPrompt(String callbackId) {
+        BiometricManager biometricManager = BiometricManager.from(this);
+        int canAuthenticate = biometricManager.canAuthenticate(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG);
+
+        if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
+            notifyBiometricResult(callbackId, false, "unavailable");
+            return;
+        }
+
+        Executor executor = ContextCompat.getMainExecutor(this);
+        BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor,
+                new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                        super.onAuthenticationSucceeded(result);
+                        notifyBiometricResult(callbackId, true, "success");
+                    }
+
+                    @Override
+                    public void onAuthenticationError(int errorCode, CharSequence errString) {
+                        super.onAuthenticationError(errorCode, errString);
+                        notifyBiometricResult(callbackId, false, "error");
+                    }
+
+                    @Override
+                    public void onAuthenticationFailed() {
+                        super.onAuthenticationFailed();
+                    }
+                });
+
+        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Verify it's you")
+                .setSubtitle("Use your fingerprint to continue")
+                .setNegativeButtonText("Cancel")
+                .build();
+
+        biometricPrompt.authenticate(promptInfo);
+    }
+
+    private void notifyBiometricResult(String callbackId, boolean success, String reason) {
+        String js = "window.__subhubBiometricCallback && window.__subhubBiometricCallback("
+                + "'" + callbackId + "', " + success + ", '" + reason + "');";
+        runOnUiThread(() -> webView.evaluateJavascript(js, null));
     }
 }
