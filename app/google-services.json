@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "649761428518",
+    "project_id": "subhub-push",
+    "storage_bucket": "subhub-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:649761428518:android:a0369461377065b703c2e7",
+        "android_client_info": {
+          "package_name": "ng.subhub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC8QnKa-Yy8FSzHFqhQfH_BlhAps_VMLIA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
