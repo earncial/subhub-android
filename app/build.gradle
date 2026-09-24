@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "ng.subhub"
-        minSdk 21
+        minSdk 24
         targetSdk 36
         versionCode 3
         versionName "2.0.2"
