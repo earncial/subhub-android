@@ -197,6 +197,20 @@ public class MainActivity extends AppCompatActivity {
         checkForUpdate();
     }
 
+    // TEMPORARY - DEBUG ONLY, cire wannan bayan gwajin
+FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+    if (task.isSuccessful()) {
+        String token = task.getResult();
+        runOnUiThread(() -> {
+            android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+            b.setTitle("FCM Token (copy this)");
+            b.setMessage(token);
+            b.setPositiveButton("OK", null);
+            b.show();
+        });
+    }
+});
+    
     private void checkForUpdate() {
         appUpdateManager.getAppUpdateInfo().addOnSuccessListener(appUpdateInfo -> {
             if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
