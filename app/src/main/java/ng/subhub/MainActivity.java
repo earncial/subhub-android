@@ -45,6 +45,7 @@ import com.google.android.play.core.install.InstallStateUpdatedListener;
 import com.google.android.play.core.install.model.AppUpdateType;
 import com.google.android.play.core.install.model.InstallStatus;
 import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import org.json.JSONObject;
 
@@ -113,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
         webView.addJavascriptInterface(new DownloadInterface(), "AndroidDownload");
         webView.addJavascriptInterface(new AuthInterface(), "AndroidAuth");
         webView.addJavascriptInterface(new ShareInterface(), "AndroidShare");
+        webView.addJavascriptInterface(new PushInterface(), "AndroidPush");
         
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -152,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                if (url.startsWith("https://subhub.com.ng") || url.startsWith("file://")) {
+                if (url.startsWith("https://app.subhub.com.ng") || url.startsWith("file://")) {
                     return false;
                 }
                 try {
@@ -328,6 +330,25 @@ private class ShareInterface {
     }
 }
 
+/**
+ * Bridge exposed to the web page as window.AndroidPush.
+ * The web page calls window.AndroidPush.getFcmToken(callbackId) after a
+ * successful login, then POSTs the returned token to its own backend
+ * to save it against the logged-in user (e.g. the user.fcmToken field).
+ */
+private class PushInterface {
+    @JavascriptInterface
+    public void getFcmToken(String callbackId) {
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            String token = task.isSuccessful() ? task.getResult() : null;
+            String tokenJs = token == null ? "null" : JSONObject.quote(token);
+            String js = "window.__subhubFcmTokenCallback && window.__subhubFcmTokenCallback("
+                    + "'" + callbackId + "', " + tokenJs + ");";
+            runOnUiThread(() -> webView.evaluateJavascript(js, null));
+        });
+    }
+}
+    
 private void shareImageFile(String base64Data, String fileName) {
     try {
         byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
