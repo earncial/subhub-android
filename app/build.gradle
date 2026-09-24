@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
 
 android {
@@ -11,7 +12,7 @@ android {
         minSdk 21
         targetSdk 36
         versionCode 3
-        versionName "2.0.1"
+        versionName "2.0.2"
     }
 
     buildTypes {
@@ -32,4 +33,7 @@ dependencies {
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.biometric:biometric:1.1.0'
     implementation 'com.google.android.play:app-update:2.1.0'
+
+    implementation platform('com.google.firebase:firebase-bom:34.17.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }
