@@ -1,52 +1,77 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="ng.subhub">
+package ng.subhub;
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.os.Build;
 
-    <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
-        android:label="SubHub"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme"
-        android:hardwareAccelerated="true">
+import androidx.core.app.NotificationCompat;
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
 
-        <service
-            android:name=".SubHubMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+public class SubHubMessagingService extends FirebaseMessagingService {
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+    private static final String CHANNEL_ID = "subhub_notifications";
 
-    </application>
+    @Override
+    public void onNewToken(String token) {
+        super.onNewToken(token);
+        // The token is picked up on demand by MainActivity (via
+        // AndroidPush.getFcmToken), which asks Firebase for the current
+        // token directly and passes it to the website to save against the
+        // logged-in user. Nothing to do here beyond the default behaviour.
+    }
 
-</manifest>
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        super.onMessageReceived(remoteMessage);
+
+        String title = "SubHub";
+        String body = "";
+
+        if (remoteMessage.getNotification() != null) {
+            if (remoteMessage.getNotification().getTitle() != null) {
+                title = remoteMessage.getNotification().getTitle();
+            }
+            if (remoteMessage.getNotification().getBody() != null) {
+                body = remoteMessage.getNotification().getBody();
+            }
+        } else if (!remoteMessage.getData().isEmpty()) {
+            title = remoteMessage.getData().getOrDefault("title", title);
+            body = remoteMessage.getData().getOrDefault("body", body);
+        }
+
+        showNotification(title, body);
+    }
+
+    private void showNotification(String title, String body) {
+        NotificationManager manager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "SubHub Notifications",
+                    NotificationManager.IMPORTANCE_HIGH);
+            manager.createNotificationChannel(channel);
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH);
+
+        manager.notify((int) System.currentTimeMillis(), builder.build());
+    }
+}
